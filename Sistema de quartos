@@ -1,0 +1,187 @@
+from datetime import datetime
+
+class Quarto:
+    def __init__(self, numero, tipo, capacidade, preco_por_noite):
+        self.numero = numero
+        self.tipo = tipo
+        self.capacidade = capacidade
+        self.preco_por_noite = preco_por_noite
+        self.reservas = []
+
+class Reserva:
+    ultimo_numero_reserva = 0
+
+    def __init__(self, quarto, check_in, check_out, ocupantes, nome, cpf):
+        Reserva.ultimo_numero_reserva += 1
+        self.numero_reserva = Reserva.ultimo_numero_reserva
+        self.quarto = quarto
+        self.check_in = check_in
+        self.check_out = check_out
+        self.ocupantes = ocupantes
+        self.nome = nome
+        self.cpf = cpf
+        self.ticket = f"Reserva {self.numero_reserva} - Quarto {quarto.numero}: {check_in} a {check_out} para {ocupantes} pessoa(s) - Nome: {nome}, CPF: {cpf}"
+    
+    def calcular_valor(self):
+        check_in_date = datetime.strptime(self.check_in, "%Y-%m-%d")
+        check_out_date = datetime.strptime(self.check_out, "%Y-%m-%d")
+        noites = (check_out_date - check_in_date).days
+        return noites * self.quarto.preco_por_noite
+
+class Hotel:
+    def __init__(self, linhas, colunas):
+        self.linhas = linhas
+        self.colunas = colunas
+        self.quartos = [[None for _ in range(colunas)] for _ in range(linhas)]
+        self.reservas = []
+
+    def adicionar_quarto(self, linha, coluna, numero, tipo, capacidade, preco_por_noite):
+        if 0 <= linha < self.linhas and 0 <= coluna < self.colunas:
+            novo_quarto = Quarto(numero, tipo, capacidade, preco_por_noite)
+            self.quartos[linha][coluna] = novo_quarto
+            print("Quarto adicionado com sucesso!")
+        else:
+            print("Posição inválida para adicionar um quarto.")
+
+    def verificar_disponibilidade(self, check_in, check_out):
+        check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
+        check_out_date = datetime.strptime(check_out, "%Y-%m-%d")
+        disponiveis = []
+        indisponiveis = []
+
+        for linha in self.quartos:
+            for quarto in linha:
+                if quarto is not None:
+                    ocupado = False
+                    for reserva in quarto.reservas:
+                        reserva_check_in = datetime.strptime(reserva.check_in, "%Y-%m-%d")
+                        reserva_check_out = datetime.strptime(reserva.check_out, "%Y-%m-%d")
+                        if (check_in_date < reserva_check_out and check_out_date > reserva_check_in):
+                            ocupado = True
+                            break
+                    if ocupado:
+                        indisponiveis.append(quarto)
+                    else:
+                        disponiveis.append(quarto)
+                
+        return disponiveis, indisponiveis
+
+    def reservar_quarto(self, numero, check_in, check_out, ocupantes, nome, cpf):
+        check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
+        check_out_date = datetime.strptime(check_out, "%Y-%m-%d")
+        quarto = None
+
+        for linha in self.quartos:
+            for q in linha:
+                if q is not None and q.numero == numero:
+                    quarto = q
+                    break
+            if quarto:
+                break
+        
+        if quarto:
+            for reserva in quarto.reservas:
+                reserva_check_in = datetime.strptime(reserva.check_in, "%Y-%m-%d")
+                reserva_check_out = datetime.strptime(reserva.check_out, "%Y-%m-%d")
+                if (check_in_date < reserva_check_out and check_out_date > reserva_check_in):
+                    return "Quarto não disponível para o período selecionado."
+            
+            if ocupantes > quarto.capacidade:
+                return "Número de ocupantes excede a capacidade do quarto."
+            
+            nova_reserva = Reserva(quarto, check_in, check_out, ocupantes, nome, cpf)
+            self.reservas.append(nova_reserva)
+            quarto.reservas.append(nova_reserva)
+            return nova_reserva.ticket
+        else:
+            return "Quarto não encontrado."
+
+    def exibir_mapa_disponibilidade(self):
+        for linha in self.quartos:
+            for quarto in linha:
+                if quarto is None:
+                    print("N/A", end=" ")
+                elif quarto.reservas:
+                    print("I", end=" ")
+                else:
+                    print("D", end=" ")
+            print()
+
+    def exibir_lista_quartos(self, disponiveis, indisponiveis):
+        print("\nQuartos Disponíveis:")
+        for quarto in disponiveis:
+            print(f"Quarto {quarto.numero} - {quarto.tipo}, Capacidade: {quarto.capacidade}, Preço: {quarto.preco_por_noite}")
+
+        print("\nQuartos Indisponíveis:")
+        for quarto in indisponiveis:
+            print(f"Quarto {quarto.numero} - {quarto.tipo}, Capacidade: {quarto.capacidade}, Preço: {quarto.preco_por_noite}")
+
+    def calcular_faturamento(self):
+        total = sum(reserva.calcular_valor() for reserva in self.reservas)
+        return total
+
+def menu():
+    linhas = 3  # Número de linhas da matriz de quartos
+    colunas = 3  # Número de colunas da matriz de quartos
+    hotel = Hotel(linhas, colunas)
+    
+    while True:
+        print("\nMenu:")
+        print("1. Adicionar Quarto")
+        print("2. Reservar Quarto")
+        print("3. Exibir Mapa de Disponibilidade")
+        print("4. Exibir Lista de Quartos Disponíveis e Indisponíveis")
+        print("5. Calcular Faturamento Total")
+        print("6. Sair")
+
+        escolha = input("Escolha uma opção: ")
+
+        if escolha == "1":
+            try:
+                linha = int(input("Linha do quarto: "))
+                coluna = int(input("Coluna do quarto: "))
+                numero = input("Número do quarto: ")
+                tipo = input("Tipo do quarto (solteiro/casal/compartilhado): ")
+                capacidade = int(input("Capacidade do quarto: "))
+                preco = float(input("Preço por noite: "))
+                hotel.adicionar_quarto(linha, coluna, numero, tipo, capacidade, preco)
+            except ValueError:
+                print("Entrada inválida. Tente novamente.")
+
+        elif escolha == "2":
+            try:
+                numero = input("Número do quarto: ")
+                check_in = input("Data de check-in (AAAA-MM-DD): ")
+                check_out = input("Data de check-out (AAAA-MM-DD): ")
+                ocupantes = int(input("Número de ocupantes: "))
+                nome = input("Nome do hóspede: ")
+                cpf = input("CPF do hóspede: ")
+                ticket = hotel.reservar_quarto(numero, check_in, check_out, ocupantes, nome, cpf)
+                print(ticket)
+            except ValueError:
+                print("Entrada inválida. Tente novamente.")
+
+        elif escolha == "3":
+            hotel.exibir_mapa_disponibilidade()
+
+        elif escolha == "4":
+            try:
+                check_in = input("Data de check-in (AAAA-MM-DD): ")
+                check_out = input("Data de check-out (AAAA-MM-DD): ")
+                disponiveis, indisponiveis = hotel.verificar_disponibilidade(check_in, check_out)
+                hotel.exibir_lista_quartos(disponiveis, indisponiveis)
+            except ValueError:
+                print("Formato de data inválido. Tente novamente.")
+
+        elif escolha == "5":
+            faturamento = hotel.calcular_faturamento()
+            print(f"Total faturado: R$ {faturamento:.2f}")
+
+        elif escolha == "6":
+            break
+
+        else:
+            print("Opção inválida. Tente novamente.")
+
+if __name__ == "__main__":
+    menu()
