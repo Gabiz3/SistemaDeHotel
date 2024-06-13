@@ -1,0 +1,319 @@
+from datetime import datetime, timedelta
+
+class Usuario:
+    def __init__(self, login, senha, tipo_usuario):
+        self.login = login
+        self.senha = senha
+        self.tipo_usuario = tipo_usuario
+
+    def menu(self):
+        raise NotImplementedError("Subclass must implement abstract method")
+
+class Administrador(Usuario):
+    def menu(self):
+        while True:
+            print("\nMenu Admin:")
+            opcao = exibir_menu({
+                '1': "Adicionar Auditório",
+                '2': "Fazer Reserva",
+                '3': "Visualizar Reservas",
+                '4': "Gerar Relatório de Disponibilidade",
+                '5': "Gerar Relatório de Faturamento",
+                '6': "Cadastrar Usuário",
+                '7': "Sair"
+            })
+            if opcao == '1':
+                adicionar_auditorio()
+            elif opcao == '2':
+                fazer_reserva()
+            elif opcao == '3':
+                visualizar_reservas()
+            elif opcao == '4':
+                aud_id = input("Digite o ID do auditório: ")
+                gerar_relatorio_disponibilidade(aud_id)
+            elif opcao == '5':
+                aud_id = input("Digite o ID do auditório: ")
+                gerar_relatorio_faturamento(aud_id)
+            elif opcao == '6':
+                cadastrar_usuario()
+            elif opcao == '7':
+                break
+            else:
+                print("Opção inválida. Tente novamente.")
+
+class Recepcao(Usuario):
+    def menu(self):
+        while True:
+            print("\nMenu Recepção:")
+            opcao = exibir_menu({
+                '1': "Fazer Reserva",
+                '2': "Visualizar Reservas",
+                '3': "Gerar Relatório de Disponibilidade",
+                '4': "Sair"
+            })
+            if opcao == '1':
+                fazer_reserva()
+            elif opcao == '2':
+                visualizar_reservas()
+            elif opcao == '3':
+                aud_id = input("Digite o ID do auditório: ")
+                gerar_relatorio_disponibilidade(aud_id)
+            elif opcao == '4':
+                break
+            else:
+                print("Opção inválida. Tente novamente.")
+
+class Hospede(Usuario):
+    def menu(self):
+        while True:
+            print("\nMenu Hóspede:")
+            opcao = exibir_menu({
+                '1': "Fazer Reserva",
+                '2': "Sair"
+            })
+            if opcao == '1':
+                fazer_reserva()
+            elif opcao == '2':
+                break
+            else:
+                print("Opção inválida. Tente novamente.")
+
+class Auditorio:
+    def __init__(self, id, capacidade, preco_por_hora):
+        self.id = id
+        self.capacidade = capacidade
+        self.preco_por_hora = preco_por_hora
+        self.reservas = []
+
+    def __str__(self):
+        return f"Auditório {self.id} - Capacidade: {self.capacidade}, Preço por hora: {self.preco_por_hora}"
+
+    def verificar_disponibilidade(self, data_inicio, data_fim):
+        for reserva in self.reservas:
+            if (data_inicio < reserva.data_fim and data_fim > reserva.data_inicio):
+                return False
+        return True
+
+    def calcular_faturamento(self):
+        faturamento = 0
+        for reserva in self.reservas:
+            horas_reservadas = (reserva.data_fim - reserva.data_inicio).total_seconds() / 3600
+            faturamento += horas_reservadas * self.preco_por_hora
+        return faturamento
+
+class Reserva:
+    def __init__(self, audit_id, data_inicio, data_fim, num_participantes, nome, cpf, tipo):
+        self.audit_id = audit_id
+        self.data_inicio = data_inicio
+        self.data_fim = data_fim
+        self.num_participantes = num_participantes
+        self.nome = nome
+        self.cpf = cpf
+        self.tipo = tipo
+        self.ticket = self.gerar_ticket()
+
+    def gerar_ticket(self):
+        return f"TKT-{self.audit_id}-{int(self.data_inicio.timestamp())}-{self.cpf[-4:]}"
+
+    def __str__(self):
+        return (f"Reserva para o Auditório {self.audit_id} de {self.data_inicio} a {self.data_fim} - "
+                f"Participantes: {self.num_participantes} - Nome: {self.nome} - CPF: {self.cpf} - Tipo: {self.tipo} - Ticket: {self.ticket}")
+
+class Pagamento:
+    @staticmethod
+    def calcular_total(auditorio, data_inicio, data_fim):
+        horas_reservadas = (data_fim - data_inicio).total_seconds() / 3600
+        return horas_reservadas * auditorio.preco_por_hora
+
+def exibir_menu(opcoes):
+    for key, value in opcoes.items():
+        print(f"{key}. {value}")
+    opcao = input("Escolha uma opção: ")
+    return opcao
+
+def cadastrar_usuario():
+    login = input("Digite o login: ")
+    senha = input("Digite a senha: ")
+    tipo_usuario = input("Tipos de usuário: 1. Administrador 2. Recepção 3. Hóspede\nDigite o tipo de usuário (1/2/3): ")
+
+    if tipo_usuario == '1':
+        tipo_usuario = 'admin'
+        usuarios[login] = Administrador(login, senha, tipo_usuario)
+    elif tipo_usuario == '2':
+        tipo_usuario = 'recepcao'
+        usuarios[login] = Recepcao(login, senha, tipo_usuario)
+    elif tipo_usuario == '3':
+        tipo_usuario = 'hospede'
+        usuarios[login] = Hospede(login, senha, tipo_usuario)
+    else:
+        print("Tipo de usuário inválido. Cadastro cancelado.")
+        return
+
+    if login in usuarios:
+        print("Login já existe. Escolha outro login.")
+        return
+
+    print(f"Usuário {login} cadastrado com sucesso como {tipo_usuario}.")
+
+def adicionar_auditorio():
+    id = input("Digite o ID do auditório: ")
+    capacidade = validar_inteiro("Digite a capacidade do auditório: ")
+    preco_por_hora = validar_float("Digite o preço por hora do auditório: ")
+    auditorio = Auditorio(id, capacidade, preco_por_hora)
+    auditorios.append(auditorio)
+    print(f"Auditório {id} adicionado com sucesso!")
+
+def fazer_reserva():
+    audit_id = input("Digite o ID do auditório: ")
+    data_inicio_str = input("Digite a data de início (YYYY-MM-DD): ")
+    hora_inicio_str = input("Digite a hora de início (HH:MM): ")
+    data_fim_str = input("Digite a data de fim (YYYY-MM-DD): ")
+    hora_fim_str = input("Digite a hora de fim (HH:MM): ")
+    num_participantes = validar_inteiro("Digite o número de participantes: ")
+    nome = input("Digite o nome do responsável pela reserva: ")
+    cpf = validar_cpf(input("Digite o CPF do responsável pela reserva: "))
+    tipo = input("Digite o tipo de usuário (hóspede/convidado externo): ")
+
+    try:
+        data_inicio = datetime.strptime(data_inicio_str + " " + hora_inicio_str, "%Y-%m-%d %H:%M")
+        data_fim = datetime.strptime(data_fim_str + " " + hora_fim_str, "%Y-%m-%d %H:%M")
+    except ValueError:
+        print("Formato de data ou hora inválido.")
+        return
+
+    auditorio = next((aud for aud in auditorios if aud.id == audit_id), None)
+
+    if not auditorio:
+        print(f"Auditório {audit_id} não encontrado.")
+        return
+
+    if not auditorio.verificar_disponibilidade(data_inicio, data_fim):
+        print("O auditório não está disponível no horário solicitado.")
+        return
+
+    if num_participantes > auditorio.capacidade:
+        print(f"O número de participantes ({num_participantes}) excede a capacidade do auditório ({auditorio.capacidade}).")
+        return
+
+    if data_fim < data_inicio:
+        print("Data final deve ser maior ou igual à data inicial.")
+        return
+
+    total_a_pagar = Pagamento.calcular_total(auditorio, data_inicio, data_fim)
+    print(f"Total a pagar: R$ {total_a_pagar:.2f}")
+
+    reserva = Reserva(audit_id, data_inicio, data_fim, num_participantes, nome, cpf, tipo)
+    auditorio.reservas.append(reserva)
+
+    if data_inicio.date() not in reservas_por_data:
+        reservas_por_data[data_inicio.date()] = []
+    reservas_por_data[data_inicio.date()].append(reserva)
+    print(f"Reserva criada com sucesso! Ticket: {reserva.ticket}")
+
+def visualizar_reservas():
+    data_str = input("Digite a data para visualizar as reservas (YYYY-MM-DD): ")
+    try:
+        data = datetime.strptime(data_str, "%Y-%m-%d").date()
+    except ValueError:
+        print("Formato de data inválido.")
+        return
+
+    if data in reservas_por_data:
+        for reserva in reservas_por_data[data]:
+            print(reserva)
+    else:
+        print("Nenhuma reserva encontrada para esta data.")
+
+def gerar_relatorio_disponibilidade(aud_id):
+    auditorio = next((aud for aud in auditorios if aud.id == aud_id), None)
+    
+    if not auditorio:
+        print(f"Auditório {aud_id} não encontrado.")
+        return
+
+    dias_reservados = set()
+    dias_disponiveis = set()
+    
+    hoje = datetime.now().date()
+    for i in range(30):
+        dia = hoje + timedelta(days=i)
+        disponibilidade = auditorio.verificar_disponibilidade(
+            datetime.combine(dia, datetime.min.time()), 
+            datetime.combine(dia, datetime.max.time())
+        )
+        if disponibilidade:
+            dias_disponiveis.add(dia)
+        else:
+            dias_reservados.add(dia)
+    
+    print(f"Relatório de Disponibilidade para o Auditório {aud_id}:")
+    print("Dias Disponíveis:")
+    for dia in dias_disponiveis:
+        print(dia)
+    print("Dias Indisponíveis:")
+    for dia in dias_reservados:
+        print(dia)
+
+def gerar_relatorio_faturamento(aud_id):
+    auditorio = next((aud for aud in auditorios if aud.id == aud_id), None)
+    
+    if not auditorio:
+        print(f"Auditório {aud_id} não encontrado.")
+        return
+
+    faturamento = auditorio.calcular_faturamento()
+    print(f"Faturamento total para o Auditório {aud_id}: R$ {faturamento:.2f}")
+
+def validar_inteiro(prompt):
+    while True:
+        try:
+            return int(input(prompt))
+        except ValueError:
+            print("Entrada inválida. Por favor, insira um número inteiro.")
+
+def validar_float(prompt):
+    while True:
+        try:
+            return float(input(prompt))
+        except ValueError:
+            print("Entrada inválida. Por favor, insira um número decimal.")
+
+def validar_cpf(cpf):
+    while True:
+        if len(cpf) == 11 and cpf.isdigit():
+            return cpf
+        else:
+            print("CPF inválido. Deve conter 11 dígitos numéricos.")
+            cpf = input("Digite o CPF do responsável pela reserva: ")
+
+def login():
+    login = input("Digite o login: ")
+    senha = input("Digite a senha: ")
+    
+    if login in usuarios and usuarios[login].senha == senha:
+        usuarios[login].menu()
+    else:
+        print("Login ou senha incorretos.")
+
+# Lista de auditórios e dicionário de reservas por data
+auditorios = []
+reservas_por_data = {}
+usuarios = {}
+
+# Main loop
+while True:
+    print("\nBem-vindo ao sistema de reservas de auditórios!")
+    opcao = exibir_menu({
+        '1': "Login",
+        '2': "Cadastrar Usuário",
+        '3': "Sair"
+    })
+    if opcao == '1':
+        login()
+    elif opcao == '2':
+        cadastrar_usuario()
+    elif opcao == '3':
+        print("Saindo do sistema. Até logo!")
+        break
+    else:
+        print("Opção inválida. Tente novamente.")
