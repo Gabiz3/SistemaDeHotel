@@ -1,0 +1,185 @@
+from datetime import datetime, time
+
+class Refeicao:
+    def __init__(self, id, nome, descricao, preco, horarios_disponibilidade):
+        self.id = id
+        self.nome = nome
+        self.descricao = descricao
+        self.preco = preco
+        self.horarios_disponibilidade = horarios_disponibilidade  # Lista de horários
+
+    def __str__(self):
+        horarios = ", ".join(h.strftime("%H:%M") for h in self.horarios_disponibilidade)
+        return f"{self.id}. {self.nome} - {self.descricao} - R${self.preco:.2f} - Horários: {horarios}"
+
+class AgendamentoRefeicao:
+    def __init__(self, refeicao_id, data_horario, hospede, pago=False):
+        self.refeicao_id = refeicao_id
+        self.data_horario = data_horario
+        self.hospede = hospede
+        self.pago = pago
+
+    def __str__(self):
+        status_pagamento = "Pago" if self.pago else "Pendente"
+        return f"Refeição {self.refeicao_id} agendada para {self.data_horario} por {self.hospede} - Status: {status_pagamento}"
+
+# Lista de refeições
+refeicoes = []
+# Lista de agendamentos de refeições
+agendamentos = []
+
+def cadastrar_refeicao():
+    try:
+        id = len(refeicoes) + 1
+        nome = input("Nome da refeição: ")
+        descricao = input("Descrição da refeição: ")
+        preco = float(input("Preço da refeição: "))
+        horarios_str = input("Horários disponíveis (HH:MM, separados por vírgula): ")
+        horarios_disponibilidade = [datetime.strptime(h.strip(), "%H:%M").time() for h in horarios_str.split(",")]
+        refeicao = Refeicao(id, nome, descricao, preco, horarios_disponibilidade)
+        refeicoes.append(refeicao)
+        print("Refeição cadastrada com sucesso!")
+    except ValueError as e:
+        print(f"Erro: {e}")
+
+def listar_menu():
+    print("Menu de Refeições:")
+    for refeicao in refeicoes:
+        print(refeicao)
+
+def realizar_compra_ou_reserva():
+    try:
+        listar_menu()
+        refeicao_id = int(input("Informe o ID da refeição: "))
+        opcao = input("Deseja comprar para agora ou reservar? (agora/reserva): ").strip().lower()
+        
+        if opcao == "agora":
+            data_horario = datetime.now()
+        elif opcao == "reserva":
+            data = input("Informe a data (AAAA-MM-DD): ")
+            hora = input("Informe a hora (HH:MM): ")
+            data_horario = datetime.strptime(f"{data} {hora}", "%Y-%m-%d %H:%M")
+        else:
+            print("Opção inválida.")
+            return
+        
+        hospede = input("Informe o nome do hóspede: ")
+
+        for refeicao in refeicoes:
+            if refeicao.id == refeicao_id and (opcao == "agora" or data_horario.time() in refeicao.horarios_disponibilidade):
+                if opcao == "agora":
+                    print(f"Compra realizada com sucesso: {refeicao.nome} para {hospede}")
+                    processar_pagamento_individual(refeicao.preco)
+                else:
+                    agendamento = AgendamentoRefeicao(refeicao_id, data_horario, hospede)
+                    agendamentos.append(agendamento)
+                    print(f"Reserva realizada com sucesso: {agendamento}")
+                return
+
+        print("Erro: Refeição ou horário indisponível.")
+    except ValueError as e:
+        print(f"Erro: {e}")
+
+def processar_pagamento_individual(total_a_pagar):
+    print(f"Total a pagar: R${total_a_pagar:.2f}")
+    recebido = float(input("Valor recebido: R$"))
+    troco = recebido - total_a_pagar
+    print(f"Troco: R${troco:.2f}")
+
+def gerar_relatorio_reservas():
+    print("Relatório de Reservas:")
+    total_faturamento = 0
+    faturamento_refeicao = {}
+    reservas_pendentes = []
+    reservas_pagas = []
+
+    for agendamento in agendamentos:
+        if agendamento.pago:
+            reservas_pagas.append(agendamento)
+            for refeicao in refeicoes:
+                if refeicao.id == agendamento.refeicao_id:
+                    faturamento_refeicao[refeicao.nome] = faturamento_refeicao.get(refeicao.nome, 0) + refeicao.preco
+                    total_faturamento += refeicao.preco
+        else:
+            reservas_pendentes.append(agendamento)
+
+    print("\nReservas Pagas:")
+    for agendamento in reservas_pagas:
+        print(agendamento)
+
+    print("\nReservas Pendentes:")
+    for agendamento in reservas_pendentes:
+        print(agendamento)
+
+    print("\nFaturamento por Refeição:")
+    for refeicao, faturamento in faturamento_refeicao.items():
+        print(f"{refeicao}: R${faturamento:.2f}")
+
+    print(f"\nFaturamento Total: R${total_faturamento:.2f}")
+
+def processar_pagamento():
+    print("Processamento de Pagamento:")
+    pendentes = [agendamento for agendamento in agendamentos if not agendamento.pago]
+    if not pendentes:
+        print("Não há pagamentos pendentes.")
+        return
+
+    print("Agendamentos Pendentes:")
+    for i, agendamento in enumerate(pendentes, 1):
+        print(f"{i}. {agendamento}")
+
+    ids = input("Informe os IDs dos agendamentos a serem pagos (separados por vírgula): ").split(",")
+    ids = [int(id.strip()) for id in ids]
+
+    total_a_pagar = 0
+    for id in ids:
+        if 1 <= id <= len(pendentes):
+            agendamento = pendentes[id - 1]
+            for refeicao in refeicoes:
+                if refeicao.id == agendamento.refeicao_id:
+                    total_a_pagar += refeicao.preco
+                    agendamento.pago = True
+                    break
+
+    print(f"Total a pagar: R${total_a_pagar:.2f}")
+    recebido = float(input("Valor recebido: R$"))
+    troco = recebido - total_a_pagar
+    print(f"Troco: R${troco:.2f}")
+    confirmacao = input("Deseja confirmar o pagamento? (s/n): ").lower()
+    if confirmacao == 's':
+        print("Pagamentos confirmados.")
+    else:
+        for id in ids:
+            if 1 <= id <= len(pendentes):
+                pendentes[id - 1].pago = False
+        print("Pagamentos cancelados.")
+
+def menu_interacao():
+    while True:
+        print("\n1. Cadastrar Refeição")
+        print("2. Listar Menu")
+        print("3. Comprar ou Reservar Refeição")
+        print("4. Gerar Relatório de Reservas")
+        print("5. Processar Pagamentos")
+        print("6. Sair")
+        
+        opcao = input("Escolha uma opção: ")
+        
+        if opcao == '1':
+            cadastrar_refeicao()
+        elif opcao == '2':
+            listar_menu()
+        elif opcao == '3':
+            realizar_compra_ou_reserva()
+        elif opcao == '4':
+            gerar_relatorio_reservas()
+        elif opcao == '5':
+            processar_pagamento()
+        elif opcao == '6':
+            print("Saindo...")
+            break
+        else:
+            print("Opção inválida, por favor escolha novamente.")
+
+# Iniciar interação com o usuário
+menu_interacao()
